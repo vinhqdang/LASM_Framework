@@ -1,0 +1,14 @@
+{
+    "script_kiddie": {
+        "C_compute_per_NQU": 0.05,
+        "hourly_rate": 20,
+        "epsilon_opportunity": 50,
+        "typical_budget_NQU": 100
+    },
+    "criminal": {
+        "C_compute_per_NQU": 0.02,
+        "hourly_rate": 100,
+        "epsilon_opportunity": 500,
+        "typical_budget_NQU": 1000
+    }
+}

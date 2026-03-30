@@ -1,0 +1,10 @@
+{
+    "harm_weights": {
+        "EP_SP": 8.0,
+        "EP_UP": 5.0,
+        "EP_RC": 7.0,
+        "EP_TC": 9.0,
+        "EP_AM": 10.0,
+        "EP_MS": 8.0
+    }
+}
