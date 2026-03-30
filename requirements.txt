@@ -1,0 +1,9 @@
+networkx
+numpy
+scipy
+pandas
+torch
+transformers
+accelerate
+scikit-learn
+typing-extensions
