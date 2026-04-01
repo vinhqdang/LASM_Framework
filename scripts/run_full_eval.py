@@ -56,9 +56,9 @@ def main():
     print("Metrics calculated successfully.")
     
     print("\n--- Phase 2: Authentic Local Attack & Standardized Evaluation (SASR)")
-    print("Attacking isolated 3B target system...")
+    print("Attacking isolated 3B target system across comprehensive 200 dataset...")
     
-    prompts = evaluator.prompt_manager.load_prompt_set("default")
+    prompts = evaluator.prompt_manager.load_prompt_set("comprehensive_200")
     
     # Run authentic SASR which internally uses the 3B Judges
     sasr = evaluator.sasr.compute_sasr(local_3b_target_system, "NeMoGuardrails", prompts, 1000)

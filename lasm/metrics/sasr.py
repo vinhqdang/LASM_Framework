@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Dict, Callable, Any
 from lasm.systems.system_model import SASRResult
 from lasm.judges.judge_utils import cohen_kappa
+from tqdm import tqdm
 
 class SASREvaluator:
     def __init__(self, classifier_judge, llm_judge):
@@ -21,7 +22,7 @@ class SASREvaluator:
         llm_decisions = []
         per_prompt_sr = {}
         
-        for q in prompt_set:
+        for q in tqdm(prompt_set, desc="Evaluating Prompts (SASR)", unit="prompt"):
             response = attack(q, defense, budget_NQU)
             
             # C1 judge
