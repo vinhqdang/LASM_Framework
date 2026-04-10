@@ -1,33 +1,71 @@
 \section{The LASM Framework}
 \label{sec:framework}
 
-In this section, we formalize the five core components of the LASM framework.
+The Large-scale Adversarial Security Metric (LASM) framework is designed to bridge the severe theoretical gap between static, isolated model evaluation and dynamic, system-level enterprise deployment. Unlike existing paradigms that treat Generative AI components as standalone text prediction engines, LASM models the entire socio-technical system iteratively. To accomplish this, we formalize five continuously interacting components that collectively map technical exploitability, temporal decay, and game-theoretic deterrence.
 
 \subsection{LLM Attack Surface (LAS)}
-We model an LLM-based system as a directed graph $G = (V, E)$, with $V$ as processing nodes and $E$ as information flows carrying trust weights. We identify specific entry point types, such as System Prompts ($EP_{SP}$), User Prompts ($EP_{UP}$), and Agent Messages ($EP_{AM}$).
+\label{subsec:las}
 
-The LLM Attack Surface under budget $B$ at time $t$ for system $S$ is defined as:
+We first define the architectural exposure of the system. An LLM-based system is modeled as a heterogeneous directed graph $G = (V, E)$, where the vertices $V$ represent discrete processing nodes (e.g., the LLM orchestrator, a RAG retrieval engine, external API executors) and the edges $E$ map data flows carrying varying trust weights. Within this topology, we identify specific entry points ($EP$), encompassing System Prompts ($EP_{SP}$), User Prompts ($EP_{UP}$), and Agent Messages ($EP_{AM}$).
+
+The LLM Attack Surface ($LAS$) quantifies the macroscopic vulnerability under a computational budget $B$ at deployment time $t$ for target system $S$:
 \begin{equation}
-    LAS(S, t, B) = \sum_{i} w_i(S) \cdot |E_i(S)| \cdot p_i(t, B) \cdot h_i
+    LAS(S, t, B) = \alpha \cdot \sum_{i \in EP} w_i(S) \cdot |E_i(S)| \cdot p_i(t, B) \cdot h_i
 \end{equation}
-where $w_i$ is architectural weight, $|E_i(S)|$ is entry point count, $p_i(t,B)$ represents exploitation probability, and $h_i$ represents the harm severity weight derived from established safety taxonomies. We include a compositional interaction amplification factor $\alpha$ for multi-agent scopes.
+
+Here, $w_i(S)$ denotes the architectural accessibility weight, prioritizing elements exposed to untrusted users. $|E_i(S)|$ represents the absolute count of entry vectors within the domain $i$. The term $p_i(t, B)$ is the empirical exploitation probability given the current attacker capabilities at time $t$ under querying budget $B$, while $h_i$ assigns a harm severity coefficient based on standardized taxonomies (e.g., MITRE ATLAS). 
+
+Crucially, modern deployments are rarely isolated models. To account for autonomous tool usage and cascading downstream exploits, LASM introduces the \textbf{Integrational Composability Factor ($\alpha$)}. $\alpha$ acts as an exponential multiplier when $S$ operates as a multi-agent framework, proving that synergistic tool access expands the attack surface non-linearly.
 
 \subsection{Standardized Attack Success Rate (SASR)}
-The SASR protocol calculates the continuous success score over a standard prompt set $Q$ subject to a defined Normalized Query Unit (NQU) Budget $B$. We enforce a Three-Judge Protocol (rule-based classifier, LLM rubric judge, and a 10\% human-in-the-loop validation) to ensure the metric's credibility (measured by Cohen's $\kappa$).
+\label{subsec:sasr}
+
+Once the attack surface is mapped, we must accurately measure the discrete vulnerability. The prevailing metric, binary Attack Success Rate (ASR), is fundamentally flawed; it frequently succumbs to the \textit{False-Safety Paradigm}, granting passing scores to "illusionary safe" responses such as compliant gibberish or partial disclosures. 
+
+To rectify this reporting bias, LASM introduces the Standardized Attack Success Rate (SASR), a continuous vulnerability metric computed over a standard adversarial prompt set $Q$ subject to a Normalized Query Unit (NQU) Budget $B$. To guarantee metric credibility, SASR employs a rigorous \textbf{Three-Judge Protocol (3JP)}:
+
+\begin{enumerate}
+    \item \textbf{Heuristic Classifier ($C_1$):} A rapid, rule-based classifier that filters out absolute, hard-coded safety refusals.
+    \item \textbf{High-Capacity LLM Judge ($C_{LLM}$):} A frontier model (e.g., \texttt{Qwen2.5-3B}) instructed with specialized rubrics to continuously score the \textit{specificity}, \textit{convincingness}, and \textit{actionability} of the adversarial execution.
+    \item \textbf{Human-in-the-Loop Validation:} A mandatory threshold ensuring inter-rater reliability via Cohen's Kappa ($k \ge 0.6$).
+\end{enumerate}
+
+For any given adversarial query $q \in Q$, the localized SASR is computed as:
+\begin{equation}
+    SASR_{q} = \frac{SR_{C_1}(q) + SR_{C_{LLM}}(q)}{2}
+\end{equation}
+By aggregating $SASR_q$ across $Q$, defenders extract a substantially more realistic penetration probability that resists naive evasions.
 
 \subsection{Temporal Robustness Curve (TRC)}
-To project vulnerability degradation, we define TRC to measure the effectiveness of defense $D$ against the strongest known attack time $t$: 
+\label{subsec:trc}
+
+Security in Generative AI is not a static property but a continuously decaying state. As novel jailbreaking techniques (e.g., GCG, PAIR) are open-sourced, static filters degrade rapidly. LASM establishes the Temporal Robustness Curve (TRC) to forecast this degradation trajectory.
+
+The TRC defines the effectiveness of a deployed defense mechanism $D$ against the mathematically strongest known adversarial attack algorithm $A^*$ at progressing time intervals $t$:
 \begin{equation}
     TRC(D, t) = SASR(A^*(t), D, Q, B_{mid})
 \end{equation}
-From this curve, we extract the Defense Half-Life (DHL)---the time it takes for SASR to double relative to its baseline deployment.
+
+By plotting this curve along intervals (e.g., $T_0$, $T_{+3}$, $T_{+6}$ months), we extract the \textbf{Defense Half-Life (DHL)}. The DHL is the strict chronological timeframe required for the system's baseline vulnerability ($SASR_{T_0}$) to double in magnitude, effectively breaching the enterprise risk threshold. This mandates a shift from point-in-time auditing to lifecycle forecasting.
 
 \subsection{Game-Theoretic Extension: Economic Attack Surface (EAS)}
-Modeling the interaction between the system defender and the attacker as a Stackelberg security game, we assert that a rational attacker acts only when the expected gain $E[G_A]$ exceeds the execution and opportunity costs $C_A$. The EAS restricts the technical attack surface by testing this rationality condition:
+\label{subsec:eas}
+
+In practice, high technical vulnerability (high LAS) rarely translates to guaranteed exploitation if the cost of the attack drastically outweighs the reward. LASM formalizes this deterrence by modeling the interaction as a Stackelberg Security Game between the system defender and distinct attacker profiles $\pi$ (e.g., script-kiddies vs. nation-state APTs).
+
+A rational actor only proceeds if the Expected Gain $V_{target}$ exceeds their total expenditures. The Economic Attack Surface (EAS) acts as a mathematical restriction on the technical attack surface:
 \begin{equation}
-    EAS(S, t, B, \pi) = \sum_{i} LAS_i \cdot \mathbb{I}[E[G_A(i, target)] - C_A(A^*_i, i, D) > \epsilon_\pi]
+    EAS(S, t, B, \pi) = \sum_{i} LAS_i \cdot \mathbb{I} \Big[ V_{target} - (\delta \cdot C_{compute} + C_{opp}) > 0 \Big]
 \end{equation}
-where $\pi$ is the attacker profile. This separates technical exploitability from economic viability.
+where $\mathbb{I}$ is the indicator function. The term $C_{compute}$ denotes the cost per algorithmic iteration to bypass security, $C_{opp}$ models the profile's opportunity cost, and $\delta$ represents the system's Defense Multiplier (e.g., latency injection, rate-limiting, compute-heavy guardrails). The EAS elegantly proves that adversaries can be systematically deterred through economic friction, even if latent prompt-injection vulnerabilities technically remain.
 
 \subsection{Attack Deterrence Threshold (ADT)}
-The ADT computes the minimum required defense investment strength $\delta$ such that no attack is economically rational. This acts as a robust stopping criterion against the over-defense problem often seen in enterprise systems.
+\label{subsec:adt}
+
+Building directly upon the EAS, defenders historically struggle with the \textit{over-defense problem}—stacking expensive, high-latency safety filters long after the threat model has been deterred. LASM provides a formal stopping criterion via the Attack Deterrence Threshold (ADT).
+
+The ADT identifies the exact breakpoint for the optimal defense investment multiplier $\delta^*$:
+\begin{equation}
+    \delta^* = \frac{V_{target} - C_{opp}}{C_{compute}}
+\end{equation}
+When an enterprise scales their defense mechanism such that $\delta > \delta^*$, the Expected ROI for the adversary becomes mathematically negative. Under these conditions, the system secures an effective 0\% EAS with $100\%$ economic deterrence. The ADT ensures that security teams allocate resources rationally relative to their specific threat environment, establishing LASM as the foundation for modern enterprise AI security management.

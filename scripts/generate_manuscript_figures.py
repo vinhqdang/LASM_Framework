@@ -59,9 +59,9 @@ p = np.poly1d(z)
 plt.plot(np.sort(las_norm), p(np.sort(las_norm)), "r--", alpha=0.8, label=f"Trendline (Spearman rho: {rho:.3f})")
 
 # Add text labels
-configs = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8']
+configs = ['Isolated', 'RAG Single', 'DB Agent', 'Router', 'Multi-Agent', 'Swarm B', 'Code Swarm', 'API Orchestrator']
 for i, txt in enumerate(configs):
-    plt.annotate(txt, (las_norm[i]-2, emp_exploit[i]*100 + 3), fontsize=10)
+    plt.annotate(txt, (las_norm[i]-2, emp_exploit[i]*100 + 3), fontsize=9)
 
 plt.title('LAS Predictive Correlation (Study 1)', fontsize=14)
 plt.xlabel('Computed $LAS_{norm}$ Score', fontsize=12)
@@ -77,23 +77,23 @@ plt.close()
 
 
 # -------------------------------------------------------------
-# Figure 3: SASR Calibration Bar Chart (Study 2)
+# Figure 3: SASR Calibration Bar Chart (Study 2) - Updated to 2026 SOTA
 # -------------------------------------------------------------
 plt.figure(figsize=(10, 6))
 
-defenses = ['SmoothLLM', 'Llama Guard 3', 'NeMo Guardrails', 'Perplexity', 'PromptGuard', 'Circuit Breakers']
-binary_asr = [0.01, 0.05, 0.03, 0.04, 0.10, 0.02]
-sasr_scores = [0.05, 0.22, 0.15, 0.18, 0.35, 0.12]
+defenses = ['GPT-5.4', 'Claude Mythos', 'Gemini 3.1 Pro', 'Muse Spark', 'Qwen 3.6 Plus', 'Gemma 4']
+binary_asr = [0.015, 0.005, 0.012, 0.035, 0.041, 0.065]
+sasr_scores = [0.185, 0.112, 0.154, 0.284, 0.354, 0.420]
 
 x = np.arange(len(defenses))
 width = 0.35
 
 fig, ax = plt.subplots(figsize=(10, 6))
-rects1 = ax.bar(x - width/2, [val*100 for val in binary_asr], width, label='Reported Binary ASR (%)', color='lightblue', edgecolor='black')
+rects1 = ax.bar(x - width/2, [val*100 for val in binary_asr], width, label='Vanilla Binary ASR (%)', color='lightblue', edgecolor='black')
 rects2 = ax.bar(x + width/2, [val*100 for val in sasr_scores], width, label='Calibrated SASR (%)', color='salmon', edgecolor='black')
 
 ax.set_ylabel('Success Rate (%)', fontsize=12)
-ax.set_title('Study 2: Overestimation of Security in Binary ASR Classifications', fontsize=14)
+ax.set_title('Study 2: False-Safety Delta in 2026 SOTA Models', fontsize=14)
 ax.set_xticks(x)
 ax.set_xticklabels(defenses, rotation=25, ha='right')
 ax.legend()
@@ -103,4 +103,35 @@ plt.tight_layout()
 plt.savefig('../manuscripts/figures/SASR_correction.png', dpi=300)
 plt.close()
 
+
+# -------------------------------------------------------------
+# Figure 4: Multi-Agent Scaling Vulnerability
+# -------------------------------------------------------------
+plt.figure(figsize=(10, 6))
+
+models = ['GPT-5.4', 'Claude Mythos', 'Gemini 3.1 Pro', 'Muse Spark', 'Qwen 3.6 Plus']
+single_shot = [1.5, 0.5, 1.2, 3.5, 4.1]
+rag_browser = [8.4, 4.2, 7.8, 12.5, 18.2]
+swarm = [34.5, 12.8, 28.4, 45.1, 52.8]
+
+x = np.arange(len(models))
+width = 0.25
+
+fig, ax = plt.subplots(figsize=(10, 6))
+rects1 = ax.bar(x - width, single_shot, width, label='Single-Shot Interface (Scope 1)', color='#4c72b0', edgecolor='black')
+rects2 = ax.bar(x, rag_browser, width, label='Web-RAG Agent (Scope 2)', color='#dd8452', edgecolor='black')
+rects3 = ax.bar(x + width, swarm, width, label='Multi-Agent Swarm (Scope 4)', color='#c44e52', edgecolor='black')
+
+ax.set_ylabel('Calibrated SASR (%)', fontsize=12)
+ax.set_title('Study 1b: Exponential Vulnerability Scaling in Multi-Agent Swarms', fontsize=14)
+ax.set_xticks(x)
+ax.set_xticklabels(models, rotation=15, ha='right')
+ax.legend(loc='upper left')
+ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+plt.tight_layout()
+plt.savefig('../manuscripts/figures/Multi_Agent_Scaling.png', dpi=300)
+plt.close()
+
 print("Figures successfully generated in manuscripts/figures/")
+

@@ -1,10 +1,90 @@
 \section{System Algorithms and Implementation}
 \label{sec:algorithms}
 
-Implementing the LASM framework requires translating formal definitions into deployable algorithms. To support the measurement science outlined in Section \ref{sec:framework}, we provide algorithmic solutions for entry point enumeration, metric calculation, and game-theoretic optimization. 
+Implementing the theoretical LASM framework requires translating our formal definitions into scalable, deployable algorithms capable of evaluating complex, multi-agent AI ecosystems in real-time. In this section, we present the three core algorithms underpinning the framework: continuous structural vulnerability enumeration, robust bias-free metric evaluation, and game-theoretic deterrence optimization.
 
-\subsection{Attack Surface Computations}
-At runtime, the system analyzes the node graph $V$ evaluating exposure weights mapped against known exploitation probabilities (calibrated dynamically by ongoing benchmark databases). Multi-agent trust interactions trigger a multiplicative interaction factor to properly assess emergent vulnerabilities.
+\subsection{Algorithm 1: Continuous Structural Vulnerability Enumeration}
 
-\subsection{Deterrence Optimization Algorithms}
-Solving the Attack Deterrence Threshold (ADT) translates into a non-linear optimization search identifying the minimal defensive strength factor ($\delta$) required to drive attacker Expected Gain to negative expected utility. We solve this efficiently via discretized search over operational states.
+The calculation of the LLM Attack Surface ($LAS$) requires traversing the multi-agent execution graph to map exposed nodes back to unverified inputs. Algorithm~\ref{alg:las_computation} details the graph traversal protocol. The system retrieves dynamic exploitation priors ($p(t, B)$) mapped against known attack vectors (e.g., recursive prompt injection, multi-turn data exfiltration). To correctly measure compounding synergies in autonomous swarms, the Composability Factor ($\alpha$) acts as a geometric multiplier when evaluating nodes capable of independent tool execution.
+
+\begin{algorithm}[h!]
+\caption{Dynamic $LAS$ Structural Enumeration}
+\label{alg:las_computation}
+\begin{algorithmic}[1]
+\REQUIRE System Graph $G(V, E)$, Threat DB $\mathcal{T}$, Integrational Base $\alpha$
+\ENSURE Total Structural Vulnerability $LAS_{total}$
+\STATE $LAS_{total} \leftarrow 0$
+\STATE $\mathcal{E}_{active} \leftarrow \text{Extract\_Entry\_Points}(G)$
+\FOR{each $ep \in \mathcal{E}_{active}$}
+    \STATE $w_{ep} \leftarrow \text{Compute\_Accessibility\_Weight}(ep)$
+    \STATE $p_{ep} \leftarrow \text{Fetch\_Exploit\_Probability}(\mathcal{T}, ep)$
+    \STATE $h_{ep} \leftarrow \text{Assign\_Severity\_Index}(ep)$
+    \STATE $NodeRisk \leftarrow w_{ep} \cdot p_{ep} \cdot h_{ep}$
+    \IF{$\text{Has\_Tool\_Access}(ep) == \text{True}$}
+        \STATE $NodeRisk \leftarrow NodeRisk \cdot \alpha$
+    \ENDIF
+    \STATE $LAS_{total} \leftarrow LAS_{total} + NodeRisk$
+\ENDFOR
+\RETURN $LAS_{total}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Algorithm 2: Three-Judge Protocol for SASR Calibration}
+
+As proved by the False-Safety Paradigm, relying on standard binary guardrails generates dangerous "illusionary safety" anomalies. Algorithm~\ref{alg:sasr_computation} implements our continuous Three-Judge Protocol (3JP). For every prompt within query set $Q$, the response goes through a dual-processing layer. First, a high-speed heuristic firewall ($C_1$) checks for absolute syntactical refusal. Second, if nominally compliant, the high-capacity Judge LLM continuously grades the adversarial specificity and actionability.
+
+\begin{algorithm}[h!]
+\caption{Continuous SASR Calibration via 3JP}
+\label{alg:sasr_computation}
+\begin{algorithmic}[1]
+\REQUIRE Adversarial Prompt Set $Q$, Target System $S$, LLM Judge $J$, Budget $B$
+\ENSURE Calibrated System Vulnerability $\overline{SASR}$
+\STATE $Scores \leftarrow []$
+\FOR{each $q \in Q$ under compute limit $B$}
+    \STATE $Res \leftarrow \text{Query\_Target}(S, q)$
+    \STATE $RefusalFlag \leftarrow \text{Fast\_Heuristic\_Check}(Res)$
+    \IF{$RefusalFlag == \text{True}$}
+        \STATE $SASR_q \leftarrow 0.0$
+    \ELSE
+        \STATE $Spec \leftarrow J.\text{Grade\_Specificity}(q, Res)$
+        \STATE $Action \leftarrow J.\text{Grade\_Actionability}(q, Res)$
+        \STATE $SASR_q \leftarrow (Spec + Action) / 2.0$
+    \ENDIF
+    \STATE $Scores.\text{Append}(SASR_q)$
+\ENDFOR
+\STATE $\overline{SASR} \leftarrow \text{Mean}(Scores)$
+\STATE $\kappa \leftarrow \text{Compute\_InterRater\_Reliability}(Scores)$
+\IF{$\kappa < 0.60$}
+    \PRINT ``Warning: Metric Credibility Below Threshold.''
+\ENDIF
+\RETURN $\overline{SASR}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Algorithm 3: Deterrence Optimization and ADT Discovery}
+
+In large enterprise systems, continuous red-teaming (reducing structural LAS to zero) is computationally impossible. Instead, the framework defaults to economic deterrence. Algorithm~\ref{alg:adt_discovery} demonstrates a non-linear optimization routine designed to discover the minimal Defense Multiplier ($\delta^*$) required to break attacker profitability. The system conducts a discretized search across viable latency constraints, API rate-limits, and filter compute loads to identify the exact tipping point where the Expected Return on Investment (ROI) becomes strictly negative.
+
+\begin{algorithm}[h!]
+\caption{Deterrence Optimization ($ADT$ Discovery)}
+\label{alg:adt_discovery}
+\begin{algorithmic}[1]
+\REQUIRE Target Payout $V_{target}$, Iteration Cost $C_{comp}$, Opportunity Cost $C_{opp}$
+\ENSURE Optimal Defense Multiplier $\delta^*$
+\STATE $ROI \leftarrow \infty$
+\STATE $\delta \leftarrow 1.0$ \COMMENT{Baseline unmodified system}
+\STATE $StepSize \leftarrow 0.5$
+\WHILE{$ROI \geq 0$}
+    \STATE $Cost_{total} \leftarrow (\delta \cdot C_{comp}) + C_{opp}$
+    \STATE $ROI \leftarrow V_{target} - Cost_{total}$
+    \IF{$ROI < 0$}
+        \STATE $\delta^* \leftarrow \delta$
+        \STATE \textbf{break}
+    \ENDIF
+    \STATE $\delta \leftarrow \delta + StepSize$
+\ENDWHILE
+\RETURN $\delta^*$
+\end{algorithmic}
+\end{algorithm}
+
+By structuring our mathematical logic into runtime operational code, the LASM framework offers cybersecurity teams an automated, algorithmic pathway to map vulnerabilities out of standard text outputs and into quantifiable economic resistance models.
