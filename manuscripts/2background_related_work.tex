@@ -1,0 +1,16 @@
+\section{Background and Related Work}
+\label{sec:background}
+
+The evaluation of LLM security has exploded with the popularization of conversational agents, but systematic measurement remains disjointed. 
+
+\subsection{Attack Surface and Threat Modeling}
+Pioneering work in generic software attack surfaces \cite{manadhata2011attack} has proven challenging to adapt to LLMs. Recent attempts \cite{zverev2025can, lupinacci2025dark} define prompt injection threats and instruction-data separation boundaries, noting extreme escalation of exploitation rates as architectural boundaries (e.g., RAG systems or inter-agent communications) cross trust boundaries. However, these models mostly describe vulnerabilities abstractly without proposing a deployable, generic mathematical metric that integrates stochastic success rates with architectural scope weights.
+
+\subsection{Standardizing Attack Success Rate (ASR)}
+Several benchmarks attempt to automate and standardize ASR evaluation. Benchmarks like HarmBench leverage fine-tuned classifiers, whereas frameworks like StrongREJECT \cite{souly2024strongreject} use continuous rubrics based on willingness and specificity. The reliance on simple binary ASR often overestimates vulnerability because models may output false compliance or non-actionable harmful content. An integrated, multi-judge approach that provides standardized query budgeting is missing.
+
+\subsection{Temporal Robustness of Defenses}
+Most defenses are evaluated statically at publication time. Literature is rife with instances of ``unbreakable'' defenses falling to adaptive adversarial optimizations mere months post-release \cite{nasr2025attacker}. The field requires formalisms for Defense Half-Life (DHL) and Degradation Rates to evaluate real-time persistence of security mechanisms.
+
+\subsection{Game-Theoretic Security Economics}
+Using economics and Stackelberg games to define security metrics is a mature field in classical networking \cite{grossklags2008secure, miehling2015pomdp}, yet completely absent from LLM security evaluation. LLM attacks carry costs (compute, labor, API fees), meaning an attack's technical feasibility does not guarantee its practical execution. Integrating an opportunity cost model into an LLM attack surface measurement is a critical novel contribution of our LASM framework.

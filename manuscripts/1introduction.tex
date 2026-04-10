@@ -1,0 +1,20 @@
+\section{Introduction}
+\label{sec:introduction}
+
+As Large Language Model (LLM) based AI systems are deployed across increasingly complex architectural scopes---from single inference endpoints to Multi-Agent Systems (MAS)---the science of security measurement has failed to keep pace. Current evaluation methodologies are fragmented, lack composability, and fail to incorporate the temporal dynamics of attack emergence or the economic rationality of attackers. These deficiencies undermine the field's scientific credibility and practical applicability.
+
+Traditional software attack surface metrics \cite{manadhata2011attack} count discrete entry points and data channels. However, these constructs do not map well onto probabilistic, prompt-driven LLM systems where any string of text is a potential attack vector, and exploitation is stochastic. Consequently, there is no formal, quantitative attack surface metric for LLMs that provides cross-system comparability or accounts for compositional interactions.
+
+Furthermore, Attack Success Rate (ASR)---the field's primary metric---suffers from definitional inconsistency. Different evaluation frameworks use varying judges (e.g., HarmBench vs. StrongREJECT \cite{souly2024strongreject}) leading to wild discrepancies in reported ASR for identical models and attacks. This lack of standardization inhibits reliable cross-study comparison. Alongside these measurement inconsistencies, the evaluation of defense effectiveness is typically static, ignoring the inevitable degradation of defenses as adaptive adversaries develop new strategies over time \cite{nasr2025attacker}.
+
+Crucially, all existing metrics share a fatal assumption: the attacker is completely irrational, executing attacks against every exploitable entry point regardless of cost. In reality, attackers operate under economic constraints. Measuring exploitability without accounting for attacker opportunity cost severely overestimates the system's true economic vulnerability.
+
+To bridge these gaps, we propose LASM (LLM Attack Surface Measurement), an overarching measurement framework comprising:
+\begin{enumerate}
+    \item \textbf{LAS (LLM Attack Surface):} A formal mathematical metric quantifying attack surface exposure.
+    \item \textbf{SASR (Standardized ASR):} A standardized, multi-judge protocol mapping binary ASR claims to robust continuous scores.
+    \item \textbf{TRC (Temporal Robustness Curve):} A temporal modeling of defense degradation to calculate the Defense Half-Life (DHL).
+    \item \textbf{Game-Theoretic Extensions:} The modeling of Economic Attack Surface (EAS) and Attack Deterrence Threshold (ADT) using a Stackelberg security game approach.
+\end{enumerate}
+
+The remainder of this paper is structured as follows. Section \ref{sec:background} outlines related work. Section \ref{sec:framework} details the LASM mathematical framework, and Section \ref{sec:algorithms} provides the system algorithms. Section \ref{sec:experiments} presents our five major empirical studies evaluating both technical and economic metrics. Finally, Section \ref{sec:discussion} discusses the implications of our results, and Section \ref{sec:conclusion} concludes.

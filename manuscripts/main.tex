@@ -1,0 +1,55 @@
+\documentclass[review]{elsarticle}
+
+\usepackage{lineno,hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{colortbl}
+\modulolinenumbers[5]
+
+\journal{Computers \& Security}
+
+\bibliographystyle{elsarticle-num}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{LASM: A Unified Measurement Framework for LLM-Based System Security — Attack Surface Quantification, Standardized Evaluation, and Temporal Robustness}
+
+\author[1]{Author One\corref{cor1}}
+\ead{author.one@example.com}
+\author[1]{Author Two}
+\ead{author.two@example.com}
+
+\address[1]{Institution Name, Address, City, Country}
+
+\cortext[cor1]{Corresponding author}
+
+\input{0abstract}
+
+\end{frontmatter}
+
+\linenumbers
+
+\input{1introduction}
+\input{2background_related_work}
+\input{3lasm_framework}
+\input{4system_algorithms}
+\input{5experiment}
+\input{6discussion_conclusion}
+
+\section*{CRediT authorship contribution statement}
+Author One: Conceptualization, Methodology, Software, Writing - Original Draft.
+Author Two: Validation, Formal analysis, Writing - Review \& Editing.
+
+\section*{Declaration of competing interest}
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+\section*{Data availability}
+Data and code will be made available upon reasonable request.
+
+\bibliography{references}
+
+\end{document}

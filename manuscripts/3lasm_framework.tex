@@ -1,0 +1,33 @@
+\section{The LASM Framework}
+\label{sec:framework}
+
+In this section, we formalize the five core components of the LASM framework.
+
+\subsection{LLM Attack Surface (LAS)}
+We model an LLM-based system as a directed graph $G = (V, E)$, with $V$ as processing nodes and $E$ as information flows carrying trust weights. We identify specific entry point types, such as System Prompts ($EP_{SP}$), User Prompts ($EP_{UP}$), and Agent Messages ($EP_{AM}$).
+
+The LLM Attack Surface under budget $B$ at time $t$ for system $S$ is defined as:
+\begin{equation}
+    LAS(S, t, B) = \sum_{i} w_i(S) \cdot |E_i(S)| \cdot p_i(t, B) \cdot h_i
+\end{equation}
+where $w_i$ is architectural weight, $|E_i(S)|$ is entry point count, $p_i(t,B)$ represents exploitation probability, and $h_i$ represents the harm severity weight derived from established safety taxonomies. We include a compositional interaction amplification factor $\alpha$ for multi-agent scopes.
+
+\subsection{Standardized Attack Success Rate (SASR)}
+The SASR protocol calculates the continuous success score over a standard prompt set $Q$ subject to a defined Normalized Query Unit (NQU) Budget $B$. We enforce a Three-Judge Protocol (rule-based classifier, LLM rubric judge, and a 10\% human-in-the-loop validation) to ensure the metric's credibility (measured by Cohen's $\kappa$).
+
+\subsection{Temporal Robustness Curve (TRC)}
+To project vulnerability degradation, we define TRC to measure the effectiveness of defense $D$ against the strongest known attack time $t$: 
+\begin{equation}
+    TRC(D, t) = SASR(A^*(t), D, Q, B_{mid})
+\end{equation}
+From this curve, we extract the Defense Half-Life (DHL)---the time it takes for SASR to double relative to its baseline deployment.
+
+\subsection{Game-Theoretic Extension: Economic Attack Surface (EAS)}
+Modeling the interaction between the system defender and the attacker as a Stackelberg security game, we assert that a rational attacker acts only when the expected gain $E[G_A]$ exceeds the execution and opportunity costs $C_A$. The EAS restricts the technical attack surface by testing this rationality condition:
+\begin{equation}
+    EAS(S, t, B, \pi) = \sum_{i} LAS_i \cdot \mathbb{I}[E[G_A(i, target)] - C_A(A^*_i, i, D) > \epsilon_\pi]
+\end{equation}
+where $\pi$ is the attacker profile. This separates technical exploitability from economic viability.
+
+\subsection{Attack Deterrence Threshold (ADT)}
+The ADT computes the minimum required defense investment strength $\delta$ such that no attack is economically rational. This acts as a robust stopping criterion against the over-defense problem often seen in enterprise systems.
