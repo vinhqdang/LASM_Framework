@@ -6,16 +6,18 @@ The Large-scale Adversarial Security Metric (LASM) framework is designed to brid
 \subsection{LLM Attack Surface (LAS)}
 \label{subsec:las}
 
-We first define the architectural exposure of the system. An LLM-based system is modeled as a heterogeneous directed graph $G = (V, E)$, where the vertices $V$ represent discrete processing nodes (e.g., the LLM orchestrator, a RAG retrieval engine, external API executors) and the edges $E$ map data flows carrying varying trust weights. Within this topology, we identify specific entry points ($EP$), encompassing System Prompts ($EP_{SP}$), User Prompts ($EP_{UP}$), and Agent Messages ($EP_{AM}$).
+We abandon naive combinatorial attack surface metrics in favor of stochastic reachability analysis via Absorbing Markov Chains (AMC). An LLM-based system is modeled as a state space $\mathcal{X} = \mathcal{V} \cup \mathcal{A}$, where $\mathcal{V}$ are transient states representing discrete processing nodes (e.g., the LLM orchestrator, a RAG retrieval engine, external API executors) and $\mathcal{A}$ comprises absorbing states such as $s_{comp}$ (successful malicious compromise) and $s_{safe}$ (safety termination).
 
-The LLM Attack Surface ($LAS$) quantifies the macroscopic vulnerability under a computational budget $B$ at deployment time $t$ for target system $S$:
+The transition matrix $P$ captures information flow carrying malicious permutations between nodes. We block $P$ into $Q$ (transient probabilities) and $R$ (absorption probabilities). This allows us to compute the \textbf{Fundamental Matrix} $N = (I - Q)^{-1}$, mapping all feedback loops and multi-hop interactions intrinsically.
+
+The exact expected exploitability, defining our LLM Attack Surface ($LAS$) under a computational budget $B$ at deployment time $t$ for target system $S$, is defined as:
 \begin{equation}
-    LAS(S, t, B) = \alpha \cdot \sum_{i \in EP} w_i(S) \cdot |E_i(S)| \cdot p_i(t, B) \cdot h_i
+    LAS(S, t, B) = h^T \cdot (I - Q_S)^{-1} \cdot P_{comp}(t, B)
 \end{equation}
 
-Here, $w_i(S)$ denotes the architectural accessibility weight, prioritizing elements exposed to untrusted users. $|E_i(S)|$ represents the absolute count of entry vectors within the domain $i$. The term $p_i(t, B)$ is the empirical exploitation probability given the current attacker capabilities at time $t$ under querying budget $B$, while $h_i$ assigns a harm severity coefficient based on standardized taxonomies (e.g., MITRE ATLAS). 
+Here, $P_{comp}(t, B)$ is the empirical exploitation emission vector measuring independent component failures, and $h$ assigns a harm severity coefficient based on standardized taxonomies (e.g., MITRE ATLAS). 
 
-Crucially, modern deployments are rarely isolated models. To account for autonomous tool usage and cascading downstream exploits, LASM introduces the \textbf{Integrational Composability Factor ($\alpha$)}. $\alpha$ acts as an exponential multiplier when $S$ operates as a multi-agent framework, proving that synergistic tool access expands the attack surface non-linearly.
+By adopting the AMC formulation, we intrinsically calculate complex multi-agent cascading failures without relying on arbitrary, additive composability scalars, thereby solving the non-linear interaction gap mathematically.
 
 \subsection{Standardized Attack Success Rate (SASR)}
 \label{subsec:sasr}
@@ -39,25 +41,30 @@ By aggregating $SASR_q$ across $Q$, defenders extract a substantially more reali
 \subsection{Temporal Robustness Curve (TRC)}
 \label{subsec:trc}
 
-Security in Generative AI is not a static property but a continuously decaying state. As novel jailbreaking techniques (e.g., GCG, PAIR) are open-sourced, static filters degrade rapidly. LASM establishes the Temporal Robustness Curve (TRC) to forecast this degradation trajectory.
+Security in Generative AI is not a static property but a continuously decaying state. As novel jailbreaking techniques (e.g., GCG, PAIR) are open-sourced, they trigger a "cascade" of derivative attacks. To model this, the Temporal Robustness Curve (TRC) forecasts degradation using self-exciting \textbf{Hawkes Processes}.
 
-The TRC defines the effectiveness of a deployed defense mechanism $D$ against the mathematically strongest known adversarial attack algorithm $A^*$ at progressing time intervals $t$:
+The TRC evaluates the deployed defense mechanism $D$ against the mathematically strongest known adversarial attack algorithm $A^*$ at progressing time intervals $t$:
 \begin{equation}
-    TRC(D, t) = SASR(A^*(t), D, Q, B_{mid})
+    TRC_{prospective}(D, t_i) = \mathbb{E}_{Hawkes}[SASR(A_i, D, Q, B_{mid})]
 \end{equation}
 
-By plotting this curve along intervals (e.g., $T_0$, $T_{+3}$, $T_{+6}$ months), we extract the \textbf{Defense Half-Life (DHL)}. The DHL is the strict chronological timeframe required for the system's baseline vulnerability ($SASR_{T_0}$) to double in magnitude, effectively breaching the enterprise risk threshold. This mandates a shift from point-in-time auditing to lifecycle forecasting.
+By simulating the self-exciting temporal intensity $\lambda(t) = \mu + \sum_{t_i < t} \alpha e^{-\beta(t-t_i)}$, we mathematically forecast the \textbf{Defense Half-Life (DHL)}. The DHL indicates when a mechanism's penetration probability crosses the critical threshold, shifting enterprise security from reactive patching to lifecycle forecasting.
 
 \subsection{Game-Theoretic Extension: Economic Attack Surface (EAS)}
 \label{subsec:eas}
 
-In practice, high technical vulnerability (high LAS) rarely translates to guaranteed exploitation if the cost of the attack drastically outweighs the reward. LASM formalizes this deterrence by modeling the interaction as a Stackelberg Security Game between the system defender and distinct attacker profiles $\pi$ (e.g., script-kiddies vs. nation-state APTs).
+High technical vulnerability ($LAS$) rarely translates to guaranteed exploitation if the cost of attack is prohibitive. LASM formalizes deterrence using Behavioral Game Theory, abandoning rigid deterministic limits in favor of a Quantal Response Equilibrium (QRE).
 
-A rational actor only proceeds if the Expected Gain $V_{target}$ exceeds their total expenditures. The Economic Attack Surface (EAS) acts as a mathematical restriction on the technical attack surface:
+We model boundedly rational adversaries across profiles $\pi$ (e.g., script-kiddies to nation-state APTs) using a continuous Logit choice function. The Economic Attack Surface ($EAS$) replaces the boolean indicator entirely:
 \begin{equation}
-    EAS(S, t, B, \pi) = \sum_{i} LAS_i \cdot \mathbb{I} \Big[ V_{target} - (\delta \cdot C_{compute} + C_{opp}) > 0 \Big]
+    EAS(S, t, B, \pi) = h^T \cdot (I - Q_S)^{-1} \cdot \text{diag}(P_{attack}(\pi)) \cdot P_{comp}(t, B)
 \end{equation}
-where $\mathbb{I}$ is the indicator function. The term $C_{compute}$ denotes the cost per algorithmic iteration to bypass security, $C_{opp}$ models the profile's opportunity cost, and $\delta$ represents the system's Defense Multiplier (e.g., latency injection, rate-limiting, compute-heavy guardrails). The EAS elegantly proves that adversaries can be systematically deterred through economic friction, even if latent prompt-injection vulnerabilities technically remain.
+where the probability of the adversary executing the attack is intrinsically weighted by their rationality parameter $\lambda_\pi$:
+\begin{equation}
+    P_{attack}(\pi)_i = \frac{1}{1 + \exp\Big(-\lambda_\pi \cdot \big( \mathbb{E}[G_{A^*}] - C_{A^*} - \varepsilon_\pi \big) \Big)}
+\end{equation}
+
+This differentiable formulation ensures that incremental investments in friction continuously limit probabilistic exploit behavior, allowing defenders to utilize convex optimization for strict security budgeting.
 
 \subsection{Attack Deterrence Threshold (ADT)}
 \label{subsec:adt}

@@ -274,46 +274,53 @@ We model an LLM-based system as a directed graph **G = (V, E)** where:
 
 ### 3.2 Metric M1: LLM Attack Surface (LAS)
 
-#### 3.2.1 Definition
+#### 3.2.1 Definition: Absorbing Markov Chain (AMC) Formulation
 
-The **LLM Attack Surface** of system *S* at time *t* under attacker budget *B* is:
+The **LLM Attack Surface** of system *S* at time *t* under attacker budget *B* is modeled as a stochastic reachability problem on an **Absorbing Markov Chain**. Traditional metrics use naive weighted sums; we directly model the probability of malicious intent persisting across multi-hop chains (e.g., User → RAG → Agent → Tool).
+
+Let the system be a state space $\mathcal{X} = \mathcal{V} \cup \mathcal{A}$, where $\mathcal{V}$ are transient component states (entry points) and $\mathcal{A}$ are absorbing states (e.g., $s_{comp}$ for successful compromise/harm, and $s_{safe}$ for safety refusal/termination).
+
+The transition matrix $P$ operates on block form:
+```
+P = [ Q   R ]
+    [ 0   I ]
+```
+where:
+- $Q$ is the submatrix of transient probabilities (information flow with persisting malicious intent between components).
+- $R$ is the submatrix of absorption probabilities (moving to a compromised or safe state).
+- $I$ is the identity matrix for absorbing states.
+
+We define the **Fundamental Matrix** $N = (I - Q)^{-1}$, where entry $N_{ij}$ is the expected number of times information visits state $j$ given it started as a malicious injection at state $i$.
+
+The **LLM Attack Surface** is then the exact expected exploitability:
 
 ```
-LAS(S, t, B) = Σᵢ wᵢ(S) · |Eᵢ(S)| · pᵢ(t, B) · hᵢ
+LAS(S, t, B) = h^T · N · P_{comp}(t, B)
 ```
 
 where:
 
-| Symbol | Name | Definition | Range |
-|--------|------|-----------|-------|
-| `i` | Entry point type index | Iterates over EP_TYPE × V | — |
-| `wᵢ(S)` | Architectural exposure weight | Proportion of external interface dedicated to entry point type i | [0, 1] |
-| `\|Eᵢ(S)\|` | Entry point count | Number of distinct exploitable entry points of type i in S | ℕ |
-| `pᵢ(t, B)` | Exploitation probability | Empirically estimated probability that a best-effort attacker with budget B successfully exploits entry point type i at time t | [0, 1] |
-| `hᵢ` | Harm severity weight | Expected harm magnitude given successful exploitation via entry point type i, calibrated from taxonomy | [1, 10] |
+| Symbol | Name | Definition |
+|--------|------|-----------|
+| `P_{comp}(t, B)` | Compromise Emission Vector | Probability vector where entry $j$ is the empirical probability that component $j$ emits to $s_{comp}$ at time $t$ under budget $B$. |
+| $N$ | Fundamental Matrix | Computed as $(I - Q)^{-1}$, capturing all possible interaction paths and feedback loops inherently. |
+| `h` | Harm Severity Vector | Expected harm magnitude vector if compromise occurs via component interaction. |
 
 #### 3.2.2 Composability Rule
 
-For a composite system **M = combine(S₁, S₂, ..., Sₙ)** with inter-component connections:
+For a composite system **M = combine(S₁, S₂, ..., Sₙ)** with inter-component connections, the total attack surface is computed purely by updating the transition matrix $P_M$ to include cross-system edges. The AMC framework naturally resolves the composability problem:
 
 ```
-LAS(M, t, B) = Σₖ LAS(Sₖ, t, B) + α · LAS_interaction(M, t, B)
+LAS(M, t, B) = h_M^T · (I - Q_M)^{-1} · P_{M, comp}(t, B)
 ```
-
-where:
-
-- `LAS_interaction(M, t, B)` = attack surface contribution from **cross-component trust exploitation** (newly exploitable paths that do not exist in any individual Sₖ)
-- `α` = empirical **interaction amplification factor**, estimated from literature data
-
-**Empirical calibration of α:**  
-From [R4] (Lupinacci et al., 2025), inter-agent exploitation achieves 82.4% ASR vs. 41.2% for direct injection — a 2× amplification. Initial estimate: **α ≈ 1.0** (i.e., interaction adds ~100% of the sum of individual surfaces). This will be refined empirically in Study 1.
+This entirely removes the need for arbitrary "interaction amplification factors" (α), explicitly capturing the **cross-component trust exploitation** non-linearly through matrix inversion.
 
 #### 3.2.3 Normalized LAS Score
 
 For cross-system comparison, we normalize to a [0, 100] scale:
 
 ```
-LAS_norm(S, t, B) = 100 · LAS(S, t, B) / LAS_max(B)
+LAS_norm(S, t, B) = 100 · ||LAS(S, t, B)|| / LAS_max(B)
 ```
 
 where `LAS_max(B)` is the theoretical maximum LAS under budget B (all entry points exploited with probability 1 and maximum harm weight 10). This makes LAS_norm interpretable as a **percentage of maximum possible attack surface exposed**.
@@ -458,26 +465,30 @@ where θ is an application-specific acceptable SASR threshold. Unit: months from
 
 #### 3.4.3 Prospective TRC via Attack Emergence Model
 
-Computing TRC requires observing future attacks — infeasible at deployment time. We propose an **Attack Emergence Model (AEM)** for prospective estimation:
+Computing TRC requires observing future attacks — infeasible at deployment time. We propose an **Attack Emergence Model (AEM)** for prospective estimation using **Hawkes Processes**.
 
-**Step 1 — Fit attack release distribution:**  
-From historical data (2022–2026), model inter-attack arrival times as a Weibull distribution:
+Empirical attack evolution operates in "bursts" (e.g., discovering GCG triggered dozens of derivative attacks). A basic Weibull distribution cannot model this excitation vector. We model attack events as a self-exciting point process.
 
+**Step 1 — Conditional Intensity Function:**  
+The arrival rate of new attacks is given by:
 ```
-f(Δt; κ, λ) = (κ/λ)(Δt/λ)^(κ-1) · exp(-(Δt/λ)^κ)
+λ(t) = μ + Σ_{t_i < t} φ(t - t_i)
 ```
+where:
+- $\mu$ is the baseline background rate of novel paradigms (Weibull-distributed).
+- $\phi(\Delta t) = \alpha e^{-\beta \Delta t}$ is the excitation kernel, meaning an attack at $t_i$ temporarily spikes the probability of subsequent derivative attacks, decaying backward with rate $\beta$.
 
-**Step 2 — Sample future attacks from attack space:**  
-The LLM attack space is parameterized by (attack_type, optimization_method, target_entry_point). Future attacks are sampled from this space weighted by historical attack distribution.
+**Step 2 — Sample future attacks from the generated Hawkes Process points:**  
+The LLM attack space is parameterized by (attack_type, optimization_method, target_entry_point). Derivative attacks sample closely from the parent vector's space, while background $\mu$ queries sample novel optimizations.
 
 **Step 3 — Estimate prospective SASR:**  
-For each sampled future attack Aᵢ at time tᵢ:
+For each sampled future attack $A_i$ at time $t_i$:
 
 ```
-TRC_prospective(D, tᵢ) = E[SASR(Aᵢ, D, Q, B_mid)]
+TRC_prospective(D, t_i) = \mathbb{E}_{Hawkes}[SASR(A_i, D, Q, B_{mid})]
 ```
 
-estimated via Monte Carlo simulation over the attack space.
+estimated via Monte Carlo simulation of the self-exciting process.
 
 ---
 
@@ -569,37 +580,38 @@ G_A(i, target) = P_success(i) × V_target × (1 - P_detection) × ξ_persistence
 
 #### 3.6.1 Definition
 
-The **Economic Attack Surface** filters LAS through rational attacker decision-making:
+The **Economic Attack Surface** filters LAS through boundedly rational attacker decision-making, shifting from deterministic assumptions to Behavioral Game Theory.
+
+Rather than assuming attackers calculate gains and costs with perfect precision (yielding a rigid step-function indicator), we model the attacker's likelihood of launching attack $A$ on entry point $i$ using a **Quantal Response Equilibrium (Logit continuous choice model)**:
 
 ```
-EAS(S, t, B, π) = Σᵢ wᵢ(S) · |Eᵢ(S)| · pᵢ(t,B) · hᵢ · 𝟙[E[G_A(i,target)] - C_A(A*ᵢ, i, D) > ε_π]
+EAS(S, t, B, π) = h^T · (I - Q)^{-1} · \text{diag}(P_{attack}(π)) · P_{comp}(t, B)
 ```
 
 where:
 - `π` = attacker type profile (script kiddie, researcher, criminal, nation-state)
-- `A*ᵢ` = the optimal attack for entry point i under profile π
-- `ε_π` = opportunity cost threshold for profile π
-- `𝟙[·]` = indicator function: 1 if the condition holds, 0 otherwise
+- $P_{attack}(π)_i$ represents the probabilistic choice to attack component $i$, defined as:
+```
+P_{attack}(π)_i =  1 / (1 + \exp(-\lambda_\pi \cdot (E[G_{A^*}(i, target)] - C_{A^*}(A^*, i, D) - \varepsilon_\pi)))
+```
+where:
+- $\lambda_\pi$ is the **rationality parameter** (low for script kiddies, high for APTs). APTS operate close to deterministic rationality, while lower-tier actors have noisier attack distributions.
+- $A^*$ is the optimal attack method
+- $\varepsilon_\pi$ is the opportunity cost threshold
 
 #### 3.6.2 Key Properties
 
 **Property 1 — EAS ≤ LAS always:**
-```
-EAS(S, t, B, π) ≤ LAS(S, t, B)   for all S, t, B, π
-```
-The indicator function can only zero out terms, never add them. The gap `LAS - EAS` is the **Deterred Attack Surface (DAS)** — entry points that are technically exploitable but economically unattractive.
+As $C_A \to \infty$, $P_{attack} \to 0$. The gap `LAS - EAS` is the **Deterred Attack Surface (DAS)** — entry points that are technically exploitable but economically unattractive.
 
-**Property 2 — EAS is monotone in V_target:**
-```
-V_target ↑  →  EAS ↑   (more gain makes more attacks rational)
-```
-A higher-value target system has a larger economic attack surface for the same technical architecture.
+**Property 2 — Convex Defense Optimization:**
+Because $P_{attack}$ is a smooth Logit function instead of a non-differentiable indicator, the defender can use convex optimization (e.g., gradient descent) to find the strict optimal defense allocation $\Delta D$ that minimizes EAS with minimal investment cost.
 
 **Property 3 — EAS decreases as C_A increases:**
 ```
-C_A ↑  →  EAS ↓   (costlier attacks become irrational)
+C_A ↑  →  P_{attack} ↓ →  EAS ↓
 ```
-This is the formal basis for the **"make attacks expensive" defense strategy** — raising attacker cost can eliminate EAS contributions even without reducing pᵢ.
+This provides the formal differential measurement for the **"make attacks expensive" defense strategy**.
 
 **Property 4 — EAS varies by attacker profile:**
 ```
@@ -698,60 +710,57 @@ When the gain/cost ratio crosses 1 for attacker profile π — the defense becom
 
 The gap between DHL_tech and DHL_econ is a new measurement dimension that no existing framework captures.
 
-### 4.1 Algorithm 1: LAS Computation
+### 4.1 Algorithm 1: LAS Computation (AMC Formulation)
 
 ```
-Algorithm LAS_compute(system S, time t, budget B):
+Algorithm LAS_compute_amc(system S, time t, budget B):
   Input:
-    S: system description (architecture graph G, entry point inventory)
+    S: system description (architecture graph G with components V)
     t: measurement time
     B: attacker budget in NQU
   Output:
-    LAS_score: scalar attack surface score
-    LAS_breakdown: per-entry-point contribution
+    LAS_score: scalar attack surface score via Markov chains
+    breakdown: per-node contribution
 
-  // Step 1: Enumerate entry points
-  entry_points = enumerate_entry_points(S.G)
-  // Returns list of (node_v, type_i) pairs
+  // Step 1: Assign States
+  transient_states = list(S.V)
+  N_trans = len(transient_states)
+  
+  // Step 2: Build Q matrix (Transient information flows)
+  Q = matrix_zeros(N_trans, N_trans)
+  for u, v in S.G.edges:
+    Q[index(u), index(v)] = S.trust_weights[(u, v)]
 
-  // Step 2: Compute architectural exposure weights
-  for each (v, i) in entry_points:
-    w[v,i] = compute_exposure_weight(v, i, S)
-    // w[v,i] = (interface bandwidth allocated to entry type i at node v) /
-    //           (total interface bandwidth of node v)
-
-  // Step 3: Estimate exploitation probabilities
-  for each entry point type i:
-    p[i,t,B] = estimate_exploitation_probability(i, t, B)
-    // See Algorithm 2
-
-  // Step 4: Retrieve harm weights
-  for each entry point type i:
-    h[i] = lookup_harm_weight(i, harm_taxonomy)
-
-  // Step 5: Compute base LAS
-  LAS_base = 0
-  for each (v, i) in entry_points:
-    contribution[v,i] = w[v,i] * 1 * p[i,t,B] * h[i]
-    // |E_i| = 1 per (node, type) pair; summing gives total
-    LAS_base += contribution[v,i]
-
-  // Step 6: Compute interaction term (if multi-component)
-  if |S.components| > 1:
-    LAS_interaction = compute_interaction_surface(S, t, B)
-    LAS_score = LAS_base + α * LAS_interaction
-  else:
-    LAS_score = LAS_base
+  // Step 3: Compute Fundamental Matrix N
+  I = identity_matrix(N_trans)
+  N = invert(I - Q)
+  
+  // Step 4: Construct Emission Vector P_comp
+  P_comp = vector_zeros(N_trans)
+  for i, node in enumerate(transient_states):
+    P_comp[i] = estimate_exploitation_probability(node.ep_type, t, B)
+    
+  // Step 5: Construct Harm Vector h
+  h_vec = vector_zeros(N_trans)
+  for i, node in enumerate(transient_states):
+    h_vec[i] = lookup_harm_weight(node.ep_type)
+    
+  // Step 6: Compute LAS via Vector Multiplication
+  // element-wise expected visits * exploit prob
+  per_node_expo = N.dot(P_comp) 
+  
+  LAS_score = dot_product(h_vec, per_node_expo)
+  breakdown = {transient_states[i]: per_node_expo[i] for i in range(N_trans)}
 
   // Step 7: Normalize
-  LAS_max = compute_theoretical_max(B)
+  LAS_max = compute_theoretical_max(B, N_trans)
   LAS_norm = 100 * LAS_score / LAS_max
 
-  return LAS_norm, {contribution[v,i] for (v,i) in entry_points}
+  return LAS_norm, breakdown
 ```
 
-**Time complexity:** O(|V| × |EP_TYPE| × T_exploitation_estimate)  
-**Space complexity:** O(|V| × |EP_TYPE|)
+**Time complexity:** O(|V|^3) for matrix inversion.  
+**Space complexity:** O(|V|^2) for probability matrices.
 
 ---
 
@@ -943,10 +952,10 @@ Algorithm TRC_compute_retrospective(defense D, t0, T, Q, B):
 
 ---
 
-### 4.5 Algorithm 5: Prospective TRC via Attack Emergence Model
+### 4.5 Algorithm 5: Prospective TRC via Hawkes Process
 
 ```
-Algorithm TRC_prospective(defense D, t0, T_forecast, Q, B, n_simulations=1000):
+Algorithm TRC_prospective_hawkes(defense D, t0, T_forecast, Q, B, n_simulations=1000):
   Input:
     D: defense system
     t0: current time
@@ -956,36 +965,26 @@ Algorithm TRC_prospective(defense D, t0, T_forecast, Q, B, n_simulations=1000):
     TRC_mean: expected TRC over forecast horizon
     TRC_ci_lower, TRC_ci_upper: 90% confidence intervals
 
-  // Step 1: Fit Weibull distribution to historical attack inter-arrival times
+  // Step 1: Fit Hawkes Process to historical attack events
   historical_attacks = get_attacks_published_before(t0)
-  inter_arrival_times = compute_inter_arrival_times(historical_attacks)
-  κ_weibull, λ_weibull = fit_weibull(inter_arrival_times)
-  // Expected κ ≈ 1.8 from 2022–2026 data
-
-  // Step 2: Monte Carlo simulation
+  event_times = [a.time for a in historical_attacks]
+  mu, alpha, beta = fit_hawkes_parameters(event_times)
+  
   TRC_simulations = []
 
+  // Step 2: Monte Carlo simulation of Self-Exciting Process
   for sim in range(n_simulations):
-    // Sample future attack arrival times
-    simulated_attacks = []
-    t_current = t0
-    while t_current < t0 + T_forecast:
-      Δt = sample_weibull(κ_weibull, λ_weibull)
-      t_new_attack = t_current + Δt
-      if t_new_attack > t0 + T_forecast:
-        break
-      // Sample attack characteristics from attack space distribution
-      attack_type = sample_attack_type(historical_distribution)
-      attack_strength = sample_attack_strength(attack_type)
-      simulated_attacks.append((t_new_attack, attack_type, attack_strength))
-      t_current = t_new_attack
-
-    // Compute simulated TRC
+    simulated_attacks = simulate_hawkes_process(mu, alpha, beta, t0, t0 + T_forecast)
+    // Returns list of times where an attack occurs
+    
     sim_TRC = {}
-    current_best_SASR = TRC[t0]  // Anchor to known baseline
+    current_best_SASR = TRC[t0]  // Anchor
+    
     for t in range(t0, t0 + T_forecast):
-      new_attacks_at_t = [a for a in simulated_attacks if a.time == t]
-      for attack in new_attacks_at_t:
+      attacks_at_t = [t_new for t_new in simulated_attacks if int(t_new) == t]
+      for _ in attacks_at_t:
+        // Sample attack strength derived from Hawkes intensity variance
+        attack = sample_attack_based_on_hawkes_cluster() 
         predicted_SASR = predict_SASR_for_attack(attack, D)
         current_best_SASR = max(current_best_SASR, predicted_SASR)
       sim_TRC[t] = current_best_SASR
@@ -1008,71 +1007,54 @@ Algorithm TRC_prospective(defense D, t0, T_forecast, Q, B, n_simulations=1000):
 ### 4.6 Algorithm 6: EAS Computation
 
 ```
-Algorithm EAS_compute(system S, time t, budget B, attacker_profile π):
+Algorithm EAS_compute_qre(system S, time t, budget B, attacker_profile π):
   Input:
     S: system description
     t: measurement time
     B: attacker budget in NQU
-    π: attacker profile (SCRIPT_KIDDIE | RESEARCHER | CRIMINAL | NATION_STATE)
+    π: attacker profile
   Output:
     EAS_score: economic attack surface score
-    EAS_norm: normalized [0, 100]
-    deterrence_ratio: fraction of LAS that is deterred
-    rational_entry_points: list of economically exploitable entry points
+    deterrence_ratio: fraction of LAS deterred
 
-  // Step 1: Compute base LAS components (reuse Algorithm 1 internals)
-  entry_points, contributions = LAS_compute_internal(S, t, B)
-  LAS_total = sum(contributions.values())
+  // Step 1: Compute base LAS components via AMC
+  LAS_norm, breakdown = LAS_compute_amc(S, t, B)
+  LAS_total = sum(breakdown.values())
 
-  // Step 2: Load attacker profile parameters
-  profile = load_attacker_profile(π)
-  // profile contains: C_compute_per_NQU, hourly_rate, epsilon_opportunity
-
-  // Step 3: Estimate V_target
+  // Step 2: Load attacker parameters
+  profile = load_attacker_profile(π) // Contains lambda_rationality, epsilon
   V_target = estimate_target_value(S)
-  // Uses S.scope, S.data_sensitivity_level, S.transaction_volume
 
-  // Step 4: Estimate P_detection for each entry point type
-  P_detection = {i: estimate_detection_probability(i, S.defenses) for i in EP_TYPE}
-
-  // Step 5: Compute persistence multipliers
-  xi = {
-    EP_SP: 1.0, EP_UP: 1.0, EP_RC: 1.2,
-    EP_TC: 1.0, EP_AM: 2.0, EP_MS: 2.5
-  }
-
-  // Step 6: For each entry point, compute gain and cost, apply indicator
+  // Step 3: QRE attack probability per node
   EAS_score = 0
   rational_entry_points = []
 
-  for each (v, i) in entry_points:
-    p_i = contributions[v,i] / (w[v,i] * h[i])  // Back out exploitation prob
+  for node, base_las_val in breakdown.items():
+    p_i = estimate_exploitation_probability(node.ep_type, t, B)
+    P_det = estimate_detection_probability(node.ep_type, S.defenses)
+    xi = get_persistence_multiplier(node.ep_type)
+
+    G_A = p_i * V_target * (1 - P_det) * xi
     
-    // Compute expected gain
-    G_A = p_i * V_target * (1 - P_detection[i]) * xi[i]
-    
-    // Identify optimal attack for this entry point under profile π
-    A_star = select_optimal_attack(i, profile, S.defenses)
-    
-    // Compute attack cost
+    A_star = select_optimal_attack(node.ep_type, profile, S.defenses)
     C_compute = A_star.NQU_required * profile.C_compute_per_NQU
     C_expertise = A_star.complexity_hours * profile.hourly_rate
-    C_A = C_compute + C_expertise + profile.epsilon_opportunity
-
-    // Apply rationality indicator
-    if G_A - C_A > profile.epsilon_opportunity:
-      EAS_score += contributions[v,i]
+    C_A = C_compute + C_expertise
+    
+    // Logit choice probability from Quantal Response Equilibrium
+    diff = G_A - C_A - profile.epsilon_opportunity
+    P_attack = 1.0 / (1.0 + exp(-profile.lambda_rationality * diff))
+    
+    EAS_score += base_las_val * P_attack
+    
+    if P_attack > 0.1: // Arbitrary threshold for logging
       rational_entry_points.append({
-        "entry_point": (v, i),
-        "gain": G_A,
-        "cost": C_A,
-        "net_value": G_A - C_A,
-        "LAS_contribution": contributions[v,i]
+        "node": node,
+        "P_attack": P_attack,
+        "net_value": diff
       })
 
-  // Step 7: Normalize and compute deterrence ratio
-  LAS_max = compute_theoretical_max(B)
-  EAS_norm = 100 * EAS_score / LAS_max
+  EAS_norm = 100 * EAS_score / compute_theoretical_max(B, len(S.V))
   deterrence_ratio = 1 - (EAS_score / LAS_total) if LAS_total > 0 else 1.0
 
   return EAS_norm, deterrence_ratio, rational_entry_points
